@@ -30,7 +30,7 @@ int count_right = 0;
 // Servo motor
 Servo servo;
 
-String message;
+bool eyeOpenStatus = false;
 
 // Cases
 enum { INIT,
@@ -44,7 +44,7 @@ enum { INIT,
 int randNumber;
 
 // For the QUOTE case (motivational message print)
-long quote_time = 0;
+long quote_interval = 60 * 1000 * 3;
 long last_quote_time = 0;
 
 // NeoPixel strips
@@ -64,10 +64,12 @@ int distance = 0;
 
 // Printer
 Adafruit_Thermal printer(&Serial0);
+String message;
 
 void setup() {
 
   Serial.begin(9600);
+  Serial0.begin(9600);
 
   randomSeed(analogRead(0));
 
@@ -84,6 +86,8 @@ void setup() {
 
   // Servo motor
   servo.attach(9);
+  eyeOpenStatus = true;
+  eyeClose();
 
   // Proximity sensor
   while (!Serial) {
@@ -101,6 +105,11 @@ void setup() {
 
   // Printer
   printer.begin();
+  printer.setFont('A'); 
+  printer.boldOn();
+  printer.setSize('M'); 
+  printer.justify('C');
+  printer.feed(4);
 
   printer.sleep();  // Tell printer to sleep
   delay(3000L);     // Sleep for 3 seconds
@@ -108,29 +117,29 @@ void setup() {
   printer.setDefault();
 }
 
-//   This is code related to the touch sensor that doesn't work
-//   >>>
-//   //ultra sonic distance sensor
-//   //if (lox.isRangeComplete()) {
-//   //  Serial.print("Distance in mm: ");
-//   //  Serial.println(lox.readRange());
-//   //}
-
-//   //if (ultrasonic_distance >= 15 && ultrasonic_distance <= 20 && led_status == false){
-//   //  Serial.println("I am activated");
-//   //  lightNeutral();  //TODO: i need to make it light up gently
-//   //  led_status = true;
-
-
 // Eyelids
 void eyeOpen() {
-  servo.write(90);
-  delay(500);
+  if (eyeOpenStatus == false) {
+    Serial.println("eye open");
+    for (int pos = 0; pos <= 90; pos += 2) {  // Sweep from 0 to 180 degrees
+      servo.write(pos);
+      delay(10);
+    }
+    eyeOpenStatus = true;
+    delay(500);
+  }
 }
 
 void eyeClose() {
-  servo.write(0);
-  delay(500);
+  if (eyeOpenStatus == true) {
+    Serial.println("eye close");
+    for (int pos = 90; pos >= 0; pos -= 2) {  // Sweep from 0 to 180 degrees
+      servo.write(pos);
+      delay(10);
+    }
+    eyeOpenStatus = false;
+    delay(500);
+  }
 }
 
 // Light feedback functions
@@ -188,15 +197,12 @@ void lightGreen() {
 
 void loop() {
 
-  // this code doesn't work yet because i haven't figured out the math
-  // >>
-  // quote_time += millis();
-  // if (last_quote_time == 0 && millis() >= 1000 * 50) {
-  // state = QUOTE;
-  // }
-  // else if (quote_time - last_quote_time >= 1000 * 50) {
-  //   state = QUOTE;
-  // }
+  Serial.println(quote_interval - millis() - last_quote_time);
+  if (millis() - last_quote_time > quote_interval) {
+
+    state = QUOTE;
+    last_quote_time = millis();
+  }
 
   // Buttons
   bool btn_left = readButton(btn_left_pin, btn_left_val, old_btn_left_val, btn_left_status, old_btn_left_status);
@@ -226,6 +232,7 @@ void loop() {
         Serial.println("No person detected");
       }
       break;
+
     case READY:
       Serial.println("READY");
       // to add: soundReady();
@@ -243,8 +250,6 @@ void loop() {
         Serial.println("right buttons pressed.");
         state = RIGHT;
       }
-      // }
-      // to add: after delay / prolonged inactivity, go to case STANDBY
       break;
 
     case LEFT:
@@ -252,31 +257,26 @@ void loop() {
       delay(500);
       // soundLeft();
       count_left++;
-      message = getMessage(true, false, false);
-      Serial.println(message);
+      getLeftMessage();
       state = READY;  // goes back to ready, for presentation purposes
       break;
 
     case RIGHT:
-
       lightGreen();
       delay(500);
       // soundRight();
       count_right++;
-      message = getMessage(false, true, false);
-      Serial.println(message);
+
+      getMessage(false, true, false);
+
       state = READY;  // goes back to ready, for presentation purposes
       break;
 
-
     case BOTH:
-
       lightShow();
       // soundShow
       // print from String btnBoth[]
-      message = getMessage(true, true, false);
-      Serial.println(message);
-      
+      getMessage(true, true, false);
       state = STANDBY;  // first part of the presentation is done, goes to stand-by
       break;
 
@@ -287,21 +287,23 @@ void loop() {
       strip2.show();
       Serial.println("standby");
       eyeClose();
+
+      delay(3000);
+      last_quote_time = millis();
+      state = QUOTE;
+
       break;
       // }
 
-    case QUOTE:
-
-      // { // printing motivational quote
+    case QUOTE:  // prints motivational quote
+      lightNeutral();
       eyeOpen();
       // print from String quoteTime[]
-      last_quote_time = quote_time;
-      quote_time = 0;
-      message = getMessage(false, false, true);
-      Serial.println(message);
-      Serial.println("q");
-      state = OFF;
+      getMessage(false, false, true);
+      Serial.println("quote");
 
+      delay(1000);
+      state = OFF;
       break;
 
     case OFF:
@@ -310,7 +312,10 @@ void loop() {
       strip1.show();
       strip2.show();
       Serial.println("OFF");
-      // eyeClose();
+      eyeClose();
+
+      delay(1000);
+      state = INIT;
       break;
   }
 }

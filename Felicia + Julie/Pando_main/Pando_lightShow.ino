@@ -3,6 +3,7 @@ void lightShow() {
   theaterChaseSync(strip1, strip2, strip1.Color(127, 127, 127), 50);
   rainbowSync(strip1, strip2, 10);
 }
+
 void colorWipeSync(Adafruit_NeoPixel &strip1, Adafruit_NeoPixel &strip2, uint32_t color, int wait) {
   for (int i = 0; i < strip1.numPixels(); i++) {
     strip1.setPixelColor(i, color);
