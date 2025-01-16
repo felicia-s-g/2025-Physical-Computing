@@ -1,8 +1,9 @@
 // LIBRARIES
 #include <Adafruit_Thermal.h>
 #include <Adafruit_NeoPixel.h>
+#include <Adafruit_VL53L0X.h>
 #ifdef __AVR__
-#include <avr/power.h> 
+#include <avr/power.h>
 #endif
 #include <ESP32Servo.h>
 #include <Wire.h>
@@ -54,13 +55,19 @@ long last_quote_time = 0;
 Adafruit_NeoPixel strip1(LED_COUNT_1, LED_PIN_1, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel strip2(LED_COUNT_2, LED_PIN_2, NEO_GRB + NEO_KHZ800);
 
+// Proximity sensor
+Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+
+// Printer
+Adafruit_Thermal printer(&Serial0);
+
 void setup() {
 
   Serial.begin(9600);
 
   randomSeed(analogRead(0));
 
-  // buttons
+  // Buttons
   pinMode(btn_left_pin, INPUT);
   pinMode(btn_right_pin, INPUT);
 
@@ -68,17 +75,37 @@ void setup() {
 #if defined(__AVR_ATtiny85__) && (F_CPU == 16000000)
   clock_prescale_set(clock_div_1);
 #endif
-
   strip1.begin();
   strip1.show();
   strip1.setBrightness(50);
-
   strip2.begin();
   strip2.show();
   strip2.setBrightness(50);
 
   // Servo motor
   servo.attach(9);
+
+  // Proximity sensor
+  while (!Serial) {
+    delay(1);
+  }
+  Serial.println("Adafruit VL53L0X test.");
+
+  if (!lox.begin(0x29)) {
+    Serial.println(F("Failed to boot VL53L0X"));
+    while (1)
+      ;
+  }
+  Serial.println(F("VL53L0X API Continuous Ranging example\n\n"));
+  lox.startRangeContinuous();
+
+  // Printer
+  printer.begin(); 
+
+  printer.sleep();      // Tell printer to sleep
+  delay(3000L);         // Sleep for 3 seconds
+  printer.wake();       // MUST wake() before printing again, even if reset
+  printer.setDefault();
 }
 
 //   This is code related to the touch sensor that doesn't work
@@ -97,13 +124,13 @@ void setup() {
 
 // Eyelids
 void eyeOpen() {
-servo.write(90);
-delay(500);
+  servo.write(90);
+  delay(1000);
 }
 
 void eyeClose() {
-servo.write(0);
-delay(500);
+  servo.write(0);
+  delay(500);
 }
 
 void lightNeutral() {
@@ -176,125 +203,114 @@ void loop() {
   // if (btn_left_status == 1 || btn_left_status == 2) {
   // lightGreen();
   // }
-
   // if (btn_right_status == 1 || btn_right_status == 2) {
   // lightRed();
   // }
 
-  switch (state) {
-    case INIT:
-      Serial.println("Waiting for motion sensor");
-      delay(1000);
-      // {
-      // to add: if we detect motion go to case READY
-      // motion sensor doesn't work
-      state = READY;
-      break;
-    // }
-    case READY:
-      Serial.println("READY");
-      // to add: soundReady();
-      lightNeutral();  // {
-      eyeOpen();
-      delay(1000);
-      // reading the buttons
-      if (btn_left && btn_right) {
-        Serial.println("Both buttons pressed.");
-        state = BOTH;
-      } else if (btn_left) { 
-        Serial.println("left button is pressed.");
-        state = LEFT;
-      } else if (btn_right) {
-        Serial.println("right buttons pressed.");
-        state = RIGHT;
-      }
+  // Proximity sensor
+  if (lox.isRangeComplete()) {
+    Serial.print("Distance in mm: ");
+    Serial.println(lox.readRange());
+  }
+    Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+
+    switch (state) {
+      case INIT:
+        Serial.println("Waiting for motion sensor");
+        delay(1000);
+        // {
+        // if motion sensor Distance in mm <=400 go to:
+        state = READY;
+        break;
       // }
-      // to add: after delay / prolonged inactivity, go to case STANDBY
-      break;
-
-    case LEFT:  
-    {
-      lightRed();
-      delay(50);
-      // soundLeft();
-      count_left++;
-      String message = getMessage(true, false, false);
-      Serial.println(message);
-      state = READY;  // goes back to ready, for presentation purposes
-      break;
-
-    }
-    case RIGHT:
-      {
-        lightGreen();
-        delay(50);
-        // soundRight();
-        count_right++;
-        String message = getMessage(false, true, false);
-        Serial.println(message);
-        state = READY;  // goes back to ready, for presentation purposes
+      case READY:
+        Serial.println("READY");
+        // to add: soundReady();
+        lightNeutral();  // {
+        eyeOpen();
+        delay(1000);
+        // reading the buttons
+        if (btn_left && btn_right) {
+          Serial.println("Both buttons pressed.");
+          state = BOTH;
+        } else if (btn_left) {
+          Serial.println("left button is pressed.");
+          state = LEFT;
+        } else if (btn_right) {
+          Serial.println("right buttons pressed.");
+          state = RIGHT;
+        }
+        // }
+        // to add: after delay / prolonged inactivity, go to case STANDBY
         break;
 
-      }
+      case LEFT:
+        {
+          lightRed();
+          delay(50);
+          // soundLeft();
+          count_left++;
+          String message = getMessage(true, false, false);
+          Serial.println(message);
+          state = READY;  // goes back to ready, for presentation purposes
+          break;
+        }
+      case RIGHT:
+        {
+          lightGreen();
+          delay(50);
+          // soundRight();
+          count_right++;
+          String message = getMessage(false, true, false);
+          Serial.println(message);
+          state = READY;  // goes back to ready, for presentation purposes
+          break;
+        }
 
-    case BOTH:
-      {
-        lightShow();
-        // soundShow
-        // print from String btnBoth[]
-        String message = getMessage(true, true, false);
-        Serial.println(message);
+      case BOTH:
+        {
+          lightShow();
+          // soundShow
+          // print from String btnBoth[]
+          String message = getMessage(true, true, false);
+          Serial.println(message);
 
 
-        state = STANDBY;  // first part of the presentation is done, goes to stand-by
-      }
-      break;
+          state = STANDBY;  // first part of the presentation is done, goes to stand-by
+        }
+        break;
 
-    case STANDBY:  // {
-      strip1.clear();
-      strip2.clear();
-      strip1.show();
-      strip2.show();
-      Serial.println("standby");
-      eyeClose();
-      break;
-      // }
+      case STANDBY:  // {
+        strip1.clear();
+        strip2.clear();
+        strip1.show();
+        strip2.show();
+        Serial.println("standby");
+        eyeClose();
+        break;
+        // }
 
-    case QUOTE:
-      {
-        // { // printing motivational quote
-        eyeOpen();
-        // print from String quoteTime[]
-        last_quote_time = quote_time;
-        quote_time = 0;
-        String message = getMessage(false, false, true);
-        Serial.println(message);
-        Serial.println("q");
-        state = OFF;
-      }
-      break;
+      case QUOTE:
+        {
+          // { // printing motivational quote
+          eyeOpen();
+          // print from String quoteTime[]
+          last_quote_time = quote_time;
+          quote_time = 0;
+          String message = getMessage(false, false, true);
+          Serial.println(message);
+          Serial.println("q");
+          state = OFF;
+        }
+        break;
 
-    case OFF:
-      strip1.clear();
-      strip2.clear();
-      strip1.show();
-      strip2.show();
-      Serial.println("OFF");
-      // eyesclose
-      break;
+      case OFF:
+        strip1.clear();
+        strip2.clear();
+        strip1.show();
+        strip2.show();
+        Serial.println("OFF");
+        // eyeClose();
+        break;
+    }
   }
-
-  // Selecting message to print
-  // getMessage(btn_left, btn_right, false);
-}
-
-
-
-
-// if (btn_left_status == 2) {
-//   lightGreen();
-// }
-
-// if (btn_right_status == 2) {
-//   lightRed();
-// }

@@ -8,7 +8,6 @@
 // void setup() {
 
 // Serial0.begin(9600); 
-// printer.begin(); 
 
 // //   // The following calls are in setup(), but don't *need* to be.  Use them
 // //   // anywhere!  They're just here so they run one time and are not printed
