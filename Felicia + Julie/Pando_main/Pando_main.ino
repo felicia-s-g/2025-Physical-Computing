@@ -79,6 +79,7 @@ void setup() {
 
   // Servo motor
   servo.attach(9);
+  eyeOpen();
 }
 
 //   This is code related to the touch sensor that doesn't work
@@ -98,7 +99,7 @@ void setup() {
 // Eyelids
 void eyeOpen() {
 servo.write(90);
-delay(1000);
+delay(500);
 }
 
 void eyeClose() {
@@ -128,6 +129,7 @@ void lightRed() {
   }
   strip1.show();
   strip2.show();
+  delay(2000);
 }
 
 void lightGreen() {
@@ -140,7 +142,22 @@ void lightGreen() {
   }
   strip1.show();
   strip2.show();
+  delay(2000);
 }
+
+
+// This code tests if the servo motor works
+// >>>>>>
+// void testServo() {
+//   for (int pos = 0; pos <= 180; pos += 10) { // Sweep from 0 to 180 degrees
+//     servo.write(pos);
+//     delay(500);
+//   }
+//   for (int pos = 180; pos >= 0; pos -= 10) { // Sweep back to 0 degrees
+//     servo.write(pos);
+//     delay(500);
+//   }
+// }
 
 void loop() {
 
@@ -157,13 +174,13 @@ void loop() {
   bool btn_left = readButton(btn_left_pin, btn_left_val, old_btn_left_val, btn_left_status, old_btn_left_status);
   bool btn_right = readButton(btn_right_pin, btn_right_val, old_btn_right_val, btn_right_status, old_btn_right_status);
 
-  if (btn_left_status == 1 || btn_left_status == 2) {
-  lightGreen();
-  }
+  // if (btn_left_status == 1 || btn_left_status == 2) {
+  // lightGreen();
+  // }
 
-  if (btn_right_status == 1 || btn_right_status == 2) {
-  lightRed();
-  }
+  // if (btn_right_status == 1 || btn_right_status == 2) {
+  // lightRed();
+  // }
 
   switch (state) {
     case INIT:
