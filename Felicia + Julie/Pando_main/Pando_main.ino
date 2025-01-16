@@ -79,7 +79,6 @@ void setup() {
 
   // Servo motor
   servo.attach(9);
-  eyeOpen();
 }
 
 //   This is code related to the touch sensor that doesn't work
@@ -197,6 +196,7 @@ void loop() {
       // to add: soundReady();
       lightNeutral();  // {
       eyeOpen();
+      delay(1000);
       // reading the buttons
       if (btn_left && btn_right) {
         Serial.println("Both buttons pressed.");
