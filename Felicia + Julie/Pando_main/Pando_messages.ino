@@ -13,7 +13,9 @@ void getLeftMessage() {
   randNumber = random(0, sizeof(btnLeft) / sizeof(btnLeft[0]));
   Serial.println(btnLeft[randNumber]);
 
-  printer.print(btnLeft[randNumber]);
+  printer.println(btnLeft[randNumber]);
+  printer.feed(4);
+
 }
 
 

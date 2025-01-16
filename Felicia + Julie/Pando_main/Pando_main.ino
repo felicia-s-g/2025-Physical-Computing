@@ -111,10 +111,6 @@ void setup() {
   printer.justify('C');
   printer.feed(4);
 
-  printer.sleep();  // Tell printer to sleep
-  delay(3000L);     // Sleep for 3 seconds
-  printer.wake();   // MUST wake() before printing again, even if reset
-  printer.setDefault();
 }
 
 // Eyelids
