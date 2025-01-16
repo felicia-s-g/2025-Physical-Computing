@@ -15,7 +15,7 @@ void colorWipeSync(Adafruit_NeoPixel &strip1, Adafruit_NeoPixel &strip2, uint32_
 }
 
 void theaterChaseSync(Adafruit_NeoPixel &strip1, Adafruit_NeoPixel &strip2, uint32_t color, int wait) {
-  for (int a = 0; a < 10; a++) {
+  for (int a = 0; a < 20; a++) {
     for (int b = 0; b < 3; b++) {
       strip1.clear();
       strip2.clear();

@@ -24,8 +24,8 @@ int btn_right_status = 0;
 int old_btn_right_status = -1;
 
 // Counter
-int count_left = 0;
-int count_right = 0;
+int count_left;
+int count_right;
 
 // Servo motor
 Servo servo;
@@ -105,12 +105,7 @@ void setup() {
 
   // Printer
   printer.begin();
-  printer.setFont('A'); 
-  printer.boldOn();
-  printer.setSize('M'); 
-  printer.justify('C');
-  printer.feed(4);
-
+  printer.setFont('B'); 
 }
 
 // Eyelids
@@ -249,22 +244,22 @@ void loop() {
       break;
 
     case LEFT:
+
+      count_left++;
       lightRed();
+      getLeftMessage();
       delay(500);
       // soundLeft();
-      count_left++;
-      getLeftMessage();
       state = READY;  // goes back to ready, for presentation purposes
       break;
 
     case RIGHT:
+
+      count_right++;
       lightGreen();
+      getRightMessage();
       delay(500);
       // soundRight();
-      count_right++;
-
-      getMessage(false, true, false);
-
       state = READY;  // goes back to ready, for presentation purposes
       break;
 
@@ -272,7 +267,7 @@ void loop() {
       lightShow();
       // soundShow
       // print from String btnBoth[]
-      getMessage(true, true, false);
+      getBothMessage();
       state = STANDBY;  // first part of the presentation is done, goes to stand-by
       break;
 
@@ -284,7 +279,7 @@ void loop() {
       Serial.println("standby");
       eyeClose();
 
-      delay(3000);
+      delay(10000);
       last_quote_time = millis();
       state = QUOTE;
 
@@ -294,11 +289,9 @@ void loop() {
     case QUOTE:  // prints motivational quote
       lightNeutral();
       eyeOpen();
-      // print from String quoteTime[]
-      getMessage(false, false, true);
-      Serial.println("quote");
-
-      delay(1000);
+      getQuoteMessage();
+     
+      delay(2000);
       state = OFF;
       break;
 
