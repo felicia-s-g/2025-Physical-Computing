@@ -241,6 +241,8 @@ void loop() {
         Serial.println("right buttons pressed.");
         state = RIGHT;
       }
+      delay(10000);
+      state = STANDBY;
       break;
 
     case LEFT:
@@ -279,7 +281,7 @@ void loop() {
       Serial.println("standby");
       eyeClose();
 
-      delay(10000);
+      delay(20000);
       last_quote_time = millis();
       state = QUOTE;
 
