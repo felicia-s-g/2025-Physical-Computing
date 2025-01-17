@@ -1,139 +1,139 @@
 // LIBRARIES
 #include <Adafruit_Thermal.h>
 #include <Adafruit_NeoPixel.h>
+#include <Adafruit_VL53L0X.h>
 #ifdef __AVR__
-#include <avr/power.h>  // Required for 16 MHz Adafruit Trinket
+#include <avr/power.h>
 #endif
 #include <ESP32Servo.h>
-
+#include <Wire.h>
 
 // VARIABLES
 
-// button
+// Buttons
 bool btn_left_val = false;
 bool old_btn_left_val = false;
 int btn_left_pin = 11;
 int btn_left_status = 0;  // 0: OFF, 1: RISING EDGE, 2: ON; 3: FALLING EDGE
 int old_btn_left_status = -1;
-int count_left = 0;
 
 bool btn_right_val = false;
 bool old_btn_right_val = false;
 int btn_right_pin = 12;
 int btn_right_status = 0;
 int old_btn_right_status = -1;
-int count_right = 0;
 
-// servo
+// Counter
+int count_left;
+int count_right;
+
+// Servo motor
 Servo servo;
 
-enum { INIT, READY, LEFT, RIGHT, BOTH, STANDBY, QUOTE} state = INIT;
+bool eyeOpenStatus = false;
+
+// Cases
+enum { INIT,
+       READY,
+       LEFT,
+       RIGHT,
+       BOTH,
+       STANDBY,
+       QUOTE,
+       OFF } state = INIT;
 int randNumber;
 
+// For the QUOTE case (motivational message print)
+long quote_interval = 60 * 1000 * 3;
+long last_quote_time = 0;
+
 // NeoPixel strips
-
-// Julie's initial code
-// int led_status = false;
-// int pixels_count = 24;
-// byte pixels_pin = 6;  // its actually pin nr. 3 on the arduino board
-
-// Pin and LED count for the first NeoPixel strip
 #define LED_PIN_1 6
 #define LED_COUNT_1 24
 
-// Pin and LED count for the second NeoPixel strip
 #define LED_PIN_2 9
 #define LED_COUNT_2 24
 
-// Declare NeoPixel strip objects
 Adafruit_NeoPixel strip1(LED_COUNT_1, LED_PIN_1, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel strip2(LED_COUNT_2, LED_PIN_2, NEO_GRB + NEO_KHZ800);
 
-void setup() {
-  Serial.begin(9600);
+// Proximity sensor
+Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+VL53L0X_RangingMeasurementData_t measure;
+int distance = 0;
 
-  ///distance sensor
-  //while (! Serial) {
-  //  delay(1);
-  //}
-  //
-  //Serial.println("Adafruit VL53L0X test.");
-  //if (!lox.begin(0x30)) {
-  //  Serial.println(F("Failed to boot VL53L0X"));
-  //  while(1);
-  //}
-  //// start continuous ranging
-  //lox.startRangeContinuous();
+// Printer
+Adafruit_Thermal printer(&Serial0);
+String message;
+
+void setup() {
+
+  Serial.begin(9600);
+  Serial0.begin(9600);
 
   randomSeed(analogRead(0));
 
-  //set up button
+  // Buttons
   pinMode(btn_left_pin, INPUT);
   pinMode(btn_right_pin, INPUT);
-
-// NeoPixel
-  #if defined(__AVR_ATtiny85__) && (F_CPU == 16000000)
-  clock_prescale_set(clock_div_1);
-  #endif
 
   strip1.begin();
   strip1.show();
   strip1.setBrightness(50);
-
   strip2.begin();
   strip2.show();
   strip2.setBrightness(50);
+
+  // Servo motor
+  servo.attach(9);
+  eyeOpenStatus = true;
+  eyeClose();
+
+  // Proximity sensor
+  while (!Serial) {
+    delay(1);
+  }
+  Serial.println("Adafruit VL53L0X test.");
+
+  if (!lox.begin(0x29)) {
+    Serial.println(F("Failed to boot VL53L0X"));
+    while (1)
+      ;
+  }
+  Serial.println(F("VL53L0X API Continuous Ranging example\n\n"));
+  lox.startRangeContinuous();
+
+  // Printer
+  printer.begin();
+  printer.setFont('B'); 
 }
 
-// void loop() {
-
-//   //ultra sonic distance sensor
-//   //if (lox.isRangeComplete()) {
-//   //  Serial.print("Distance in mm: ");
-//   //  Serial.println(lox.readRange());
-//   //}
-
-//   //if (ultrasonic_distance >= 15 && ultrasonic_distance <= 20 && led_status == false){
-//   //  Serial.println("I am activated");
-//   //  lightNeutral();  //TODO: i need to make it light up gently
-//   //  led_status = true;
-//   //}
-
-//   // buttons
-//   bool btn_left = readButton(btn_left_pin, btn_left_val, old_btn_left_val, btn_left_status, old_btn_left_status);
-//   bool btn_right = readButton(btn_right_pin, btn_right_val, old_btn_right_val, btn_right_status, old_btn_right_status);
-
-//   // NeoPixel
-//   if (btn_left_status == 2 && btn_right_status == 2) {
-//     theaterChaseSync(strip1, strip2, strip1.Color(127, 127, 127), 50);
-//     rainbowSync(strip1, strip2, 10);
-//   }
-
-//   if (btn_left_status == 2) {
-//     lightGreen();
-//   }
-
-//   if (btn_right_status == 2) {
-//     lightRed();
-//   }
-
-//   // // Selecting message to print
-//   // getMessage(btn_left, btn_right, false);
-
-//   // // Printing the message
-// }
-
+// Eyelids
+void eyeOpen() {
+  if (eyeOpenStatus == false) {
+    Serial.println("eye open");
+    for (int pos = 0; pos <= 90; pos += 2) {  // Sweep from 0 to 180 degrees
+      servo.write(pos);
+      delay(10);
+    }
+    eyeOpenStatus = true;
+    delay(500);
+  }
+}
 
 void eyeClose() {
-  servo.write(0);
-  delay(500);
+  if (eyeOpenStatus == true) {
+    Serial.println("eye close");
+    for (int pos = 90; pos >= 0; pos -= 2) {  // Sweep from 0 to 180 degrees
+      servo.write(pos);
+      delay(10);
+    }
+    eyeOpenStatus = false;
+    delay(500);
+  }
 }
 
-void eyeOpen() {
-  servo.write(90);
-  delay(500);
-}
-
+// Light feedback functions
 void lightNeutral() {
   strip1.clear();
   strip2.clear();
@@ -150,142 +150,161 @@ void lightRed() {
   strip1.clear();
   strip2.clear();
 
-  for (int i = 0; i < LED_COUNT_2; i++) {
+  for (int i = 0; i < LED_COUNT_1; i++) {
     strip1.setPixelColor(i, strip1.Color(255, 0, 0));
     strip2.setPixelColor(i, strip2.Color(255, 0, 0));
   }
   strip1.show();
   strip2.show();
+  delay(2000);
 }
 
 void lightGreen() {
   strip1.clear();
   strip2.clear();
 
-  for (int i = 0; i < LED_COUNT_2; i++) {
-    strip1.setPixelColor(i, strip1.ColorHSV(0, 255, 0));
-    strip2.setPixelColor(i, strip2.ColorHSV(0, 255, 0));
+  for (int i = 0; i < LED_COUNT_1; i++) {
+    strip1.setPixelColor(i, strip1.Color(0, 255, 0));
+    strip2.setPixelColor(i, strip2.Color(0, 255, 0));
   }
   strip1.show();
   strip2.show();
+  delay(2000);
 }
 
 
-bool readButton(int btn_pin, bool &btn_val, bool &old_btn_val, int &btn_status, int &old_btn_status){
-	btn_val = digitalRead(btn_pin);
-	
-	if(!btn_val && !old_btn_val) {
-		btn_status = 0;  // OFF
-	}
-	else if(btn_val && !old_btn_val) {
-		btn_status = 1;  // RISING EDGE
-    old_btn_val = 1;
-	}
-	else if(btn_val && old_btn_val) {
-		btn_status = 2;  // ON
-	}
-	else if(!btn_val && old_btn_val) {
-		btn_status = 3;  // FALLING EDGE
-    old_btn_val = 0;
-	}
-	
-	if(btn_status != old_btn_status) {
-
-    old_btn_status = btn_status;
-
-		switch(btn_status) {
-			case 0:
-				Serial.println("OFF");
-				return false;
-			case 1:
-				Serial.println("RISING EDGE");
-				return false;
-			case 2:
-				Serial.println("ON");
-        return true;
-			case 3:
-				Serial.println("FALLING EDGE");
-				return false;
-		}
-	}
-}
-
+// This code tests if the servo motor works
+// >>>>>>
+// void testServo() {
+//   for (int pos = 0; pos <= 180; pos += 10) { // Sweep from 0 to 180 degrees
+//     servo.write(pos);
+//     delay(500);
+//   }
+//   for (int pos = 180; pos >= 0; pos -= 10) { // Sweep back to 0 degrees
+//     servo.write(pos);
+//     delay(500);
+//   }
+// }
 
 void loop() {
 
-  // void stateMachine() {
-    switch (state) {
-      case INIT: {
-        // if we detect motion go to 1
-        break;
+  Serial.println(quote_interval - millis() - last_quote_time);
+  if (millis() - last_quote_time > quote_interval) {
+
+    state = QUOTE;
+    last_quote_time = millis();
+  }
+
+  // Buttons
+  bool btn_left = readButton(btn_left_pin, btn_left_val, old_btn_left_val, btn_left_status, old_btn_left_status);
+  bool btn_right = readButton(btn_right_pin, btn_right_val, old_btn_right_val, btn_right_status, old_btn_right_status);
+
+  // Proximity sensor
+  Serial.print("Reading a measurement... ");
+  lox.rangingTest(&measure, false);  // pass in 'true' to get debug data printout!
+
+  if (measure.RangeStatus != 4) {  // phase failures have incorrect data
+    Serial.print("Distance (mm): ");
+    Serial.println(measure.RangeMilliMeter);
+    distance = measure.RangeMilliMeter;
+  } else {
+    Serial.println(" out of range ");
+  }
+
+  switch (state) {
+    case INIT:
+      Serial.println("Waiting for motion sensor");
+      delay(1000);
+      Serial.println("Variable" + distance);
+      if (distance <= 400) {
+        state = READY;
+        Serial.println("Person detected");
+      } else {
+        Serial.println("No person detected");
       }
-      case READY: {
-        // lightNeutral
-        // eyeOpen
-        // soundReady
-        // we read the buttons
-        bool btn_left = readButton(btn_left_pin, btn_left_val, old_btn_left_val, btn_left_status, old_btn_left_status);
-        bool btn_right = readButton(btn_right_pin, btn_right_val, old_btn_right_val, btn_right_status, old_btn_right_status);
+      break;
 
-        if (btn_left && btn_right) {
-          state = BOTH;
-        }
-        if (btn_left != btn_right) {  // ??? will this work?
-          state = LEFT;
-        }
-        if (btn_right) {
-        }
+    case READY:
+      Serial.println("READY");
+      // to add: soundReady();
+      lightNeutral();  // {
+      eyeOpen();
+      delay(700);
+      // Reading the buttons
+      if (btn_left && btn_right) {
+        Serial.println("Both buttons pressed.");
+        state = BOTH;
+      } else if (btn_left) {
+        Serial.println("left button is pressed.");
+        state = LEFT;
+      } else if (btn_right) {
+        Serial.println("right buttons pressed.");
+        state = RIGHT;
       }
-        // after delay, go to case 5
-      case LEFT: {
-               // lightRed
-               // soundLeft
-               // counterLeft ++
-               // print from String btnLeft[]
-        randNumber = random(0, sizeof(btnLeft) / sizeof(btnLeft[0]));
-        Serial.println(btnLeft[randNumber]);
+      break;
 
-        currentState = READY;  // goes back to ready, for presentation purposes
-        break;
-      }
-      case RIGHT: {
-               // lightGreen
-               // soundRight
-               // counterRight ++
-               // print from String btnRight[]
-        randNumber = random(0, sizeof(btnRight) / sizeof(btnRight[0]));
-        Serial.println(btnRight[randNumber]);
+    case LEFT:
 
-        currentState = READY;  // goes back to ready, for presentation purposes
-        break;
-      }
-      case BOTH: {
-               // lightShow
-               // soundShow
-               // print from String btnBoth[]
+      count_left++;
+      lightRed();
+      getLeftMessage();
+      delay(500);
+      // soundLeft();
+      state = READY;  // goes back to ready, for presentation purposes
+      break;
 
-        randNumber = random(0, sizeof(btnBoth) / sizeof(btnBoth[0]));
-        Serial.println(btnBoth[randNumber]);
+    case RIGHT:
 
-        currentState = STANDBY; // first part of the presentation is done, goes to stand-by
+      count_right++;
+      lightGreen();
+      getRightMessage();
+      delay(500);
+      // soundRight();
+      state = READY;  // goes back to ready, for presentation purposes
+      break;
 
-        break;
-       }
-      case STANDBY: {
-               // light off
-               // eyeClose
-               // after delay, go to case 6
+    case BOTH:
+      lightShow();
+      // soundShow
+      // print from String btnBoth[]
+      getBothMessage();
+      state = STANDBY;  // first part of the presentation is done, goes to stand-by
+      break;
 
-        break;
-      }
-      case QUOTE: { // printing motivational quote
-              // eyeOpen
-              // print from String quoteTime[]
+    case STANDBY:  // {
+      strip1.clear();
+      strip2.clear();
+      strip1.show();
+      strip2.show();
+      Serial.println("standby");
+      eyeClose();
 
-        break;
-    }
-  // }
+      delay(10000);
+      last_quote_time = millis();
+      state = QUOTE;
 
-  // Selecting message to print
-  getMessage(btn_left, btn_right, false);
+      break;
+      // }
+
+    case QUOTE:  // prints motivational quote
+      lightNeutral();
+      eyeOpen();
+      getQuoteMessage();
+     
+      delay(2000);
+      state = OFF;
+      break;
+
+    case OFF:
+      strip1.clear();
+      strip2.clear();
+      strip1.show();
+      strip2.show();
+      Serial.println("OFF");
+      eyeClose();
+
+      delay(1000);
+      state = INIT;
+      break;
+  }
 }
