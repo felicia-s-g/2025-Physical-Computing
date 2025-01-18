@@ -1,6 +1,6 @@
 bool btn_val = false;
 bool old_btn_val = false;
-int btn_pin = 10;
+int btn_pin = 11;
 int btn_status = 0;  // 0: OFF, 1: RISING EDGE, 2: ON; 3: FALLING EDGE
 int old_btn_status = -1;
 
