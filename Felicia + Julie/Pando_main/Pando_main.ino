@@ -32,7 +32,7 @@ Servo servo;
 
 bool eyeOpenStatus = false;
 
-// Cases
+// Cases (state machine)
 enum { INIT,
        READY,
        LEFT,
@@ -48,10 +48,10 @@ long quote_interval = 60 * 1000 * 3;
 long last_quote_time = 0;
 
 // NeoPixel strips
-#define LED_PIN_1 6
-#define LED_COUNT_1 24
+#define LED_PIN_1 6 // Is actually on pin nr. 3, an Arduino bug
+#define LED_COUNT_1 24 
 
-#define LED_PIN_2 9
+#define LED_PIN_2 9 // Is actually on pin nr. 6, an Arduino bug
 #define LED_COUNT_2 24
 
 Adafruit_NeoPixel strip1(LED_COUNT_1, LED_PIN_1, NEO_GRB + NEO_KHZ800);
@@ -64,11 +64,15 @@ int distance = 0;
 
 // Printer
 Adafruit_Thermal printer(&Serial0);
+
+// Printed messages
 String message;
 
 void setup() {
 
   Serial.begin(9600);
+
+  // for the printer init
   Serial0.begin(9600);
 
   randomSeed(analogRead(0));
@@ -77,17 +81,23 @@ void setup() {
   pinMode(btn_left_pin, INPUT);
   pinMode(btn_right_pin, INPUT);
 
+  // Neopixel strips (circles, technically)
   strip1.begin();
   strip1.show();
   strip1.setBrightness(50);
+
   strip2.begin();
   strip2.show();
   strip2.setBrightness(50);
 
   // Servo motor
   servo.attach(9);
+
+  // Eyelids movement
   eyeOpenStatus = true;
-  eyeClose();
+  eyeOpen();
+  // eyeClose(); >> reversed because of physical constraints
+  // When building the object, we had to place the servo motor the other way due to space restrictions. Because of this, these functions have been reversed everywhere in the code)
 
   // Proximity sensor
   while (!Serial) {
@@ -188,9 +198,9 @@ void lightGreen() {
 
 void loop() {
 
+  // Printing out the motivational quote, this is set to a high frequency for presentation day
   Serial.println(quote_interval - millis() - last_quote_time);
   if (millis() - last_quote_time > quote_interval) {
-
     state = QUOTE;
     last_quote_time = millis();
   }
@@ -211,8 +221,9 @@ void loop() {
     Serial.println(" out of range ");
   }
 
+  // Core block of status machine
   switch (state) {
-    case INIT:
+    case INIT: // When power turns on, the initial machine status
       Serial.println("Waiting for motion sensor");
       delay(1000);
       Serial.println("Variable" + distance);
@@ -224,12 +235,14 @@ void loop() {
       }
       break;
 
-    case READY:
+    case READY: // Activated by motion sensor, i.e. when it detects a person
       Serial.println("READY");
-      // to add: soundReady();
-      lightNeutral();  // {
-      eyeOpen();
-      delay(700);
+      // to add: soundReady(); // code doesn't exist yet
+      lightNeutral();
+      // eyeOpen(); // commented out because of physical build limitations
+      eyeClose();
+      delay(700); // to make sure the function has time to execute in the physical world
+
       // Reading the buttons
       if (btn_left && btn_right) {
         Serial.println("Both buttons pressed.");
@@ -241,12 +254,12 @@ void loop() {
         Serial.println("right buttons pressed.");
         state = RIGHT;
       }
-      delay(10000);
-      state = STANDBY;
+      //delay(40000);
+      //state = STANDBY; 
+      //would go back to the end of the loop after a delay
       break;
 
-    case LEFT:
-
+    case LEFT: // Triggered by pushing btn_left, i.e. pushing the left ear down
       count_left++;
       lightRed();
       getLeftMessage();
@@ -255,44 +268,41 @@ void loop() {
       state = READY;  // goes back to ready, for presentation purposes
       break;
 
-    case RIGHT:
-
+    case RIGHT: // Triggered by pushing btn_right, i.e. pushing the right ear down
       count_right++;
       lightGreen();
       getRightMessage();
       delay(500);
-      // soundRight();
+      // soundRight(); // code doesn't exist yet
       state = READY;  // goes back to ready, for presentation purposes
       break;
 
     case BOTH:
       lightShow();
-      // soundShow
+      // soundShow // code doesn't exist yet
       // print from String btnBoth[]
       getBothMessage();
       state = STANDBY;  // first part of the presentation is done, goes to stand-by
       break;
 
-    case STANDBY:  // {
+    case STANDBY:
       strip1.clear();
       strip2.clear();
       strip1.show();
       strip2.show();
       Serial.println("standby");
-      eyeClose();
-
+      // eyeClose(); // commented out because of physical build limitations
+      eyeOpen();
       delay(20000);
       last_quote_time = millis();
       state = QUOTE;
-
       break;
-      // }
 
     case QUOTE:  // prints motivational quote
       lightNeutral();
-      eyeOpen();
+      // eyeOpen(); // commented out because of physical build limitations
+      eyeClose();
       getQuoteMessage();
-     
       delay(2000);
       state = OFF;
       break;
@@ -303,10 +313,10 @@ void loop() {
       strip1.show();
       strip2.show();
       Serial.println("OFF");
-      eyeClose();
-
+      // eyeClose(); // commented out because of physical build limitations
+      eyeOpen();
       delay(1000);
-      state = INIT;
+      state = INIT; // continuous loop
       break;
   }
 }

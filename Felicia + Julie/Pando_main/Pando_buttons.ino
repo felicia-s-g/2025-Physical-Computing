@@ -1,22 +1,23 @@
 bool readButton(int btn_pin, bool &btn_val, bool &old_btn_val, int &btn_status, int &old_btn_status) {
   btn_val = digitalRead(btn_pin);
-
+  // Reads physical button values / states
   if (!btn_val && !old_btn_val) {
     btn_status = 0;  // OFF
+    Serial.println(btn_status);
   } else if (btn_val && !old_btn_val) {
     btn_status = 1;  // RISING EDGE
     old_btn_val = 1;
   } else if (btn_val && old_btn_val) {
     btn_status = 2;  // ON
+    Serial.println(btn_status);
   } else if (!btn_val && old_btn_val) {
     btn_status = 3;  // FALLING EDGE
     old_btn_val = 0;
+    Serial.println(btn_status);
   }
-
+// Runs when there is change in the value state
   if (btn_status != old_btn_status) {
-
     old_btn_status = btn_status;
-
     switch (btn_status) {
       case 0:
         return false;
